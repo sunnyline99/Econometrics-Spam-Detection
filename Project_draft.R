@@ -187,14 +187,20 @@ stargazer(lpm, robust.lpm, type="text")
 
 ########### ALL VARS AS DEP
 
+x=NA
+
 formula="spam ~"
 
 for(i in 1:57){
-  formula=paste(x,"+",colnames(spam)[i])
+  formula=paste(formula,"+",colnames(spam)[i])
 }
 
+print(formula)
 
-myprobit <- glm(formula, data=spam, family=binomial(link="probit"))
+myprobit <- glm(x, data=spam, family=binomial(link="probit"))
+summary(myprobit)
+myprobit$coefficients
+summary(myprobit)$coefficients[2,3]
 
 p <- summary(myprobit)$coefficients[,"Pr(>|z|)"]
 
@@ -221,7 +227,7 @@ while (any(p>0.05)){
   
   
   for(i in 1:ncol(spam_temp)){
-    formula<-paste(formula,"+",colnames(spam_temp)[i])
+    formula<-paste(formula,"*",colnames(spam_temp)[i])
   }
   
   
