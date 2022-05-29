@@ -34,6 +34,219 @@ spam = na.omit(spam)
 plot(spam$word_freq_3d,col=ifelse(spam$spam==0,"green","red"))
 
 
+formula="spam ~"
+
+for(i in 1:57){
+  formula=paste(formula,"+",colnames(spam)[i])
+}
+
+print(formula)
+
+myprobit <- glm(formula, data=spam, family=binomial(link="logit"))
+summary(myprobit)
+myprobit$coefficients
+summary(myprobit)$coefficients[2,3]
+
+
+# Joint insignificance of all variables test - likelihood ratio test - restriceted and unrestricted model (notes)
+null_probit = glm(spam~1, data=spam, family=binomial(link="logit")) # restricted model and above was unrestricted
+lrtest(myprobit, null_probit)
+
+# Chi^2 is equal 54.58 and p-value is almost 0 -> reject H0 -> all variables are jointly significant (short test next week) -> if we reject H0 then we go for unrestricted model if not then we stay with restricted model
+# if we have one more variable and not restrict beta3 then we are not checking joint all significance but the restricted model
+
+
+p <- summary(myprobit)$coefficients[,"Pr(>|z|)"]
+
+spam_temp <- spam
+
+
+
+while (any(p>0.01)){
+  count = 1
+  worstp <- summary(myprobit)$coefficients[,4]==max(p)
+  for (i in worstp){
+    ifelse(i==TRUE,numvar <- count-1,count<-count+1)
+  }
+  
+  print(colnames(spam_temp[numvar]))
+  
+  spam_temp[,numvar] <- NULL
+  
+  
+  formula="spam ~"
+  
+  
+  for(i in 1:ncol(spam_temp)-1){
+    formula<-paste(formula,"+",colnames(spam_temp)[i])
+  }
+  
+  
+  myprobit <- glm(formula, data=spam_temp, family=binomial(link="logit"))
+  p <- summary(myprobit)$coefficients[,"Pr(>|z|)"]
+  print(myprobit$aic)
+  
+}
+
+print(formula)
+
+#########################################################################################
+#additional interactions
+
+#formula_interactions="spam ~ word_freq_address * word_freq_our * word_freq_over * word_freq_remove + word_freq_internet * word_freq_addresses + word_freq_free + word_freq_business * word_freq_your + word_freq_000 * word_freq_money + word_freq_hp * word_freq_hpl + word_freq_george + word_freq_data + word_freq_85 + word_freq_pm + word_freq_meeting * word_freq_project + word_freq_re + word_freq_edu * word_freq_conference + char_freq_semicolon + char_freq_exclamation + char_freq_dollar + char_freq_hashtag + capital_run_length_longest * capital_run_length_total"
+
+## BEST ONE ##formula_interactions="spam ~ word_freq_address * word_freq_our * word_freq_over * word_freq_remove + word_freq_internet * word_freq_addresses + word_freq_free + word_freq_business * word_freq_your + word_freq_000 * word_freq_money + word_freq_hp * word_freq_hpl + word_freq_george + word_freq_data + word_freq_85 + word_freq_pm + word_freq_meeting * word_freq_project + word_freq_re + word_freq_edu * word_freq_conference + char_freq_semicolon + char_freq_exclamation + char_freq_dollar * char_freq_hashtag * capital_run_length_longest * capital_run_length_total"
+
+
+#formula_interactions="spam ~ word_freq_address * word_freq_our * word_freq_over * word_freq_remove + word_freq_internet * word_freq_addresses + word_freq_free + word_freq_business * word_freq_your + word_freq_000 * word_freq_money + word_freq_hp * word_freq_hpl + word_freq_george + word_freq_data + word_freq_85 + word_freq_pm + word_freq_meeting * word_freq_project + word_freq_re + word_freq_edu * word_freq_conference + char_freq_semicolon + char_freq_exclamation + char_freq_dollar * char_freq_hashtag * capital_run_length_longest * capital_run_length_total"
+
+formula_interactions="spam ~ word_freq_make * word_freq_address * word_freq_our + word_freq_over + word_freq_remove + word_freq_internet * word_freq_order * word_freq_free * word_freq_business + word_freq_you * word_freq_credit * word_freq_your + word_freq_000 * word_freq_money + word_freq_hp + word_freq_hpl + word_freq_george + word_freq_650 + word_freq_85 + word_freq_data * word_freq_technology + word_freq_pm + word_freq_meeting + word_freq_project + word_freq_re + word_freq_edu + word_freq_conference + char_freq_semicolon * char_freq_exclamation * char_freq_dollar * char_freq_hashtag + capital_run_length_longest * capital_run_length_total"
+
+myprobit <- glm(formula_interactions, data=spam, family=binomial(link="logit"))
+
+p <- summary(myprobit)$coefficients[,"Pr(>|z|)"]
+
+j=11
+while (any(p>0.01)){
+  count = 1
+  worstp <- summary(myprobit)$coefficients[,4]==max(p)
+  for (i in worstp){
+    ifelse(i==TRUE,numvar <- count-1,count<-count+1)
+  }
+  
+  
+  X = model.matrix(myprobit)
+  X<-X[,-1]
+  name <- colnames(X)[numvar]
+  X<-X[, colnames(X) != name]
+  
+  colnam <- colnames(X)
+  if(j!=11){
+    colnam <- substr(colnam, 2, length(colnam))
+  }
+  colnames(X)<-colnam
+  
+
+  
+  myprobit = glm(spam ~ X,data=spam, family=binomial(link="logit"))
+  
+  summary(myprobit)$coefficients
+  
+  p <- summary(myprobit)$coefficients[,"Pr(>|z|)"]
+  print(myprobit$aic)
+  print(numvar)
+  j=2
+  
+}
+
+
+X = model.matrix(myprobit)
+drop = which(colnames(X) == 'XXXXXXXXXXXXXXXXXXchar_freq_exclamation:char_freq_hashtag')
+drop2 = which(colnames(X) == 'word_freq_internet:word_freq_order:word_freq_free:word_freq_business ')
+X = X[,-drop]
+X=X[,-drop2]
+
+myprobit = glm(spam ~ X,data=spam_temp, family=binomial(link="logit"))
+
+summary(myprobit)$coefficients
+
+p <- summary(myprobit)$coefficients[,"Pr(>|z|)"]
+
+summary(myprobit)$coefficients[,4]==max(p)
+
+
+############################################################
+## Works just fine with all variables significant and test is good
+
+
+formula_interaction_logit <- 'spam ~ word_freq_our * word_freq_over + word_freq_remove + word_freq_internet * word_freq_free + word_freq_business * word_freq_your + word_freq_you + word_freq_000 * word_freq_hp + word_freq_george + word_freq_re + word_freq_edu + char_freq_exclamation + char_freq_dollar + capital_run_length_longest + char_freq_dollar * word_freq_business * char_freq_exclamation'
+
+myprobit <- glm(formula_interaction_logit , data=spam_temp, family=binomial(link="logit"))
+
+X1 = model.matrix(myprobit)
+drop = which(colnames(X1) == 'word_freq_business:char_freq_dollar')
+drop2 = which(colnames(X1) == 'word_freq_business:char_freq_exclamation:char_freq_dollar')
+X1 = X1[,-drop]
+X1=X1[,-drop2]
+myprobit = glm(spam ~ X1,data=spam_temp, family=binomial(link="logit"))
+
+
+
+
+
+############################################################
+## Testing for better model
+
+
+formula_interaction_logit <- 'spam ~ word_freq_our * word_freq_over + word_freq_remove + word_freq_internet * word_freq_free + word_freq_business * word_freq_your + word_freq_you + word_freq_000 * word_freq_hp + word_freq_george + word_freq_re + word_freq_edu + char_freq_exclamation + char_freq_dollar + capital_run_length_longest + char_freq_dollar * word_freq_business * char_freq_exclamation'
+
+myprobit <- glm(formula_interaction_logit , data=spam_temp, family=binomial(link="logit"))
+
+X = model.matrix(myprobit)
+drop = which(colnames(X) == 'word_freq_business:char_freq_dollar')
+drop2 = which(colnames(X) == 'word_freq_business:char_freq_exclamation:char_freq_dollar')
+X = X[,-drop]
+X=X[,-drop2]
+myprobit = glm(spam ~ X,data=spam_temp, family=binomial(link="probit"))
+
+
+
+
+
+
+
+summary(myprobit)$coefficients
+#stargazer(lpm, myprobit, type="text")
+
+# Joint insignificance of all variables test - likelihood ratio test - restriceted and unrestricted model (notes)
+null_probit = glm(spam~1, data=spam_temp, family=binomial(link="logit")) # restricted model and above was unrestricted
+lrtest(myprobit, null_probit)
+
+# Chi^2 is equal 54.58 and p-value is almost 0 -> reject H0 -> all variables are jointly significant (short test next week) -> if we reject H0 then we go for unrestricted model if not then we stay with restricted model
+# if we have one more variable and not restrict beta3 then we are not checking joint all significance but the restricted model
+
+
+# marginal effects for the average observation
+#(meff = probitmfx(formula, data = spam_temp, atmean=TRUE))
+
+
+#mean(oscar$nominations)
+#mean(oscar$gglobes)
+
+
+#(meff = probitmfx(formula=winner~nominations+gglobes, data = oscar, atmean=FALSE))
+
+
+
+
+# Linktest - making sure we have hood specification H0: we have good specification (similar to ramsey reset test)
+setwd("C:\\Users\\justy\\Desktop\\Info\\Inne\\DSC\\UW\\Semestr II\\Econometrics\\Project")
+source("linktest.R")
+linktest_result = linktest(myprobit)
+summary(linktest_result)
+# The specification is correct. y hat is significant and y hat squared is not significant -> this is appropriate specification if hat^2 is significant then we need to add sth as it is not good
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # probit model estimation
 myprobit <- glm(spam~char_freq_semicolon+
                 char_freq_bracket+
@@ -53,22 +266,8 @@ summary(myprobit)$coefficients[2,3]
 # ------
 # Ad. a)
 
-# Joint insignificance of all variables test - likelihood ratio test - restriceted and unrestricted model (notes)
-null_probit = glm(spam~1, data=spam, family=binomial(link="probit")) # restricted model and above was unrestricted
-lrtest(myprobit, null_probit)
-
-# Chi^2 is equal 54.58 and p-value is almost 0 -> reject H0 -> all variables are jointly significant (short test next week) -> if we reject H0 then we go for unrestricted model if not then we stay with restricted model
-# if we have one more variable and not restrict beta3 then we are not checking joint all significance but the restricted model
-
-# marginal effects for the average observation
-(meff = probitmfx(formula=x, data = spam, atmean=TRUE))
 
 
-mean(oscar$nominations)
-mean(oscar$gglobes)
-
-
-(meff = probitmfx(formula=winner~nominations+gglobes, data = oscar, atmean=FALSE))
 
 ## Now I calcualte all marginal effect for single movie then we get average out of them
 ## Almost same interpretation -> but among all films
@@ -115,13 +314,6 @@ PseudoR2(myprobit)
 # ------
 # Ad. d) - now we go for diagnostics
 
-# Linktest - making sure we have hood specification H0: we have good specification (similar to ramsey reset test)
-
-source("linktest.R")
-linktest_result = linktest(myprobit)
-summary(linktest_result)
-# The specification is correct. y hat is significant and y hat squared is not significant -> this is appropriate specification if hat^2 is significant then we need to add sth as it is not good
-
 # -----
 # Ad. e) and f) - people who are data scientists they prefer Hosmer test and even more Osius-Rojek test
 gof.results = gof(myprobit)
@@ -153,7 +345,7 @@ summary(lpm)
 # Ad. b
 
 # specification test
-resettest(lpm, power=2:3, type="fitted")
+resettest(mylogit, power=2:3, type="fitted")
 
 # -----
 # Ad. c
@@ -188,59 +380,4 @@ stargazer(lpm, robust.lpm, type="text")
 ########### ALL VARS AS DEP
 
 x=NA
-
-formula="spam ~"
-
-for(i in 1:57){
-  formula=paste(formula,"+",colnames(spam)[i])
-}
-
-print(formula)
-
-myprobit <- glm(x, data=spam, family=binomial(link="probit"))
-summary(myprobit)
-myprobit$coefficients
-summary(myprobit)$coefficients[2,3]
-
-p <- summary(myprobit)$coefficients[,"Pr(>|z|)"]
-
-length(summary(myprobit)$coefficients)[max(p)]
-
-z<-summary(myprobit)$coefficients[,4]==max(p)
-
-spam_temp <- spam
-
-
-while (any(p>0.05)){
-  count = 1
-  worstp <- summary(myprobit)$coefficients[,4]==max(p)
-  for (i in worstp){
-    ifelse(i==TRUE,numvar <- count-1,count<-count+1)
-  }
-  
-  print(colnames(spam_temp[numvar]))
-  
-  spam_temp[,numvar] <- NULL
-  
-  
-  formula="spam ~"
-  
-  
-  for(i in 1:ncol(spam_temp)){
-    formula<-paste(formula,"*",colnames(spam_temp)[i])
-  }
-  
-  
-  myprobit <- glm(formula, data=spam_temp, family=binomial(link="probit"))
-  p <- summary(myprobit)$coefficients[,"Pr(>|z|)"]
-  print(myprobit$aic)
-  
-}
-
-print(formula)
-
-summary(myprobit)$coefficients
-stargazer(lpm, myprobit, type="text")
-
-
 
